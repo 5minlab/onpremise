@@ -168,6 +168,17 @@ services:
       - 'sentry-symbolicator:/data'
   web:
     << : *sentry_defaults
+    ports:
+      - '9000:9000/tcp'
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.sentry0.rule=Host(`sentry.citrus.sh`)'
+      - 'traefik.http.routers.sentry0.entrypoints=web'
+      - 'traefik.http.routers.sentry0.middlewares=redirect'
+      - 'traefik.http.middlewares.redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.sentry1.rule=Host(`sentry.citrus.sh`)'
+      - 'traefik.http.routers.sentry1.entrypoints=websecure'
+      - 'traefik.http.routers.sentry1.tls.certresolver=ssl'
   cron:
     << : *sentry_defaults
     command: run cron
@@ -213,6 +224,27 @@ services:
     depends_on:
       - kafka
       - redis
+  traefik:
+    image: "traefik:v2.1"
+    container_name: "traefik"
+    command:
+      #- "--log.level=DEBUG"
+      - '--api.insecure=true'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--certificatesresolvers.ssl.acme.httpchallenge=true'
+      - '--certificatesresolvers.ssl.acme.httpchallenge.entrypoint=web'
+    ports:
+      - '80:80'
+      - '443:443'
+      - '8080:8080'
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+      - '/opt/traefik/acme.json:/acme.json'
+    restart: unless-stopped
+
 volumes:
   sentry-data:
     external: true
